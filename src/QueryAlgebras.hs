@@ -8,31 +8,40 @@ import Types
 -- | CRUD queries
 --------------------------------------------------------------------------------
 
-data Crudable = UserCrud | MediaCrud | VfileCrud | MediaVfileCrud deriving (Show)
+data Crudable = UserCrud
+              | MediaCrud
+              | VfileCrud
+              | MediaVfileCrud
+              | CommentCrud
+                deriving (Show)
 
 data SCrudable a where
   SUserCrud       :: SCrudable 'UserCrud
   SMediaCrud      :: SCrudable 'MediaCrud
   SVfileCrud      :: SCrudable 'VfileCrud
   SMediaVfileCrud :: SCrudable 'MediaVfileCrud
+  SCommentCrud    :: SCrudable 'CommentCrud
 
 type family New (c :: Crudable) :: * where
   New 'UserCrud = UserNew
   New 'MediaCrud = MediaNew
   New 'VfileCrud = VfileNew
   New 'MediaVfileCrud = MediaVfileNew
+  New 'CommentCrud = CommentNew
 
 type family Base (c :: Crudable) :: * where
   Base 'UserCrud = UserBase
   Base 'MediaCrud = MediaBase
   Base 'VfileCrud = VfileBase
   Base 'MediaVfileCrud = MediaVfileBase
+  Base 'CommentCrud    = CommentBase
 
 type family ID (c :: Crudable) :: * where
   ID 'UserCrud = UserId
   ID 'MediaCrud = MediaId
   ID 'VfileCrud = VfileId
   ID 'MediaVfileCrud = MediaVfileId
+  ID 'CommentCrud = CommentId
 
 data CrudF next :: * where
   CreateOp :: SCrudable c -> New c -> (Base c -> next) -> CrudF next

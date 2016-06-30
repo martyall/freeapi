@@ -70,10 +70,13 @@ data MediaVfileBase = MediaVfileBase { mvfId      :: MediaVfileId
 --------------------------------------------------------------------------------
 newtype CommentId = CommentId Integer deriving (Eq, Show)
 
-data CommentNew = CommentNew { commentText' :: Text } deriving (Eq, Show)
+data CommentNew = CommentNew { commentText'  :: Text
+                             , commentMedia' :: MediaId
+                             } deriving (Eq, Show)
 
-data CommentBase = CommentBase { commentId   :: CommentId
-                               , commentText :: Text
+data CommentBase = CommentBase { commentId    :: CommentId
+                               , commentText  :: Text
+                               , commentMedia :: MediaId
                                } deriving (Eq, Show)
 
 --------------------------------------------------------------------------------
