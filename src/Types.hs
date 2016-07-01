@@ -41,6 +41,7 @@ data MediaBase r = MediaBase { mediaId      :: MediaId
                              , mediaRef     :: Text
                              , mediaOwner   :: Context UserBase r
                              }
+
 deriving instance Eq (Context UserBase r) => Eq (MediaBase r)
 deriving instance Show (Context UserBase r) => Show (MediaBase r)
 
@@ -106,28 +107,31 @@ type instance Context (MediaVfileBase r) None = MediaVfileBase None
 --------------------------------------------------------------------------------
 -- | Comment
 --------------------------------------------------------------------------------
-data Comment = MediaComment | MediaVfileComment deriving (Eq, Show)
+data CommentType = MediaComment | MediaVfileComment deriving (Eq, Show)
 
 newtype CommentId = CommentId Integer deriving (Eq, Show)
 
-data CommentNew = CommentNew { commentText'  :: Text
-                             , commentMedia' :: MediaId
-                             } deriving (Eq, Show)
+data CommentNew ct = CommentNew { commentText'     :: Text
+                                , commentSourceId' :: CommentSourceId ct
+                                }
 
-data CommentBase men = CommentBase { commentId    :: CommentId
-                                   , commentText  :: Text
-                                   , commentItem  :: CommentSourceId men
-                                   }
+deriving instance Eq (CommentSourceId ct) => Eq (CommentNew ct)
+deriving instance Show (CommentSourceId ct) => Show (CommentNew ct)
 
-deriving instance Eq (CommentSourceId men) => Eq (CommentBase men)
-deriving instance Show (CommentSourceId men) => Show (CommentBase men)
+data CommentBase ct = CommentBase { commentId        :: CommentId
+                                  , commentText      :: Text
+                                  , commentSourceId  :: CommentSourceId ct
+                                  }
 
-type family CommentSourceId (a :: Comment) :: *
+deriving instance Eq (CommentSourceId ct) => Eq (CommentBase ct)
+deriving instance Show (CommentSourceId ct) => Show (CommentBase ct)
+
+type family CommentSourceId (a :: CommentType) :: *
 
 type instance CommentSourceId 'MediaComment = MediaId
-type instance CommentSourceId 'MediaVfileComment = MediaVfileId
+type instance CommentSourceId 'MediaVfileComment = MVFIdentifier
 
-data SComment c where
+data SComment ct where
   SMediaComment :: SComment 'MediaComment
   SMediaVfileComment :: SComment 'MediaVfileComment
 
@@ -139,4 +143,3 @@ newtype VfilesError = VfilesError Text deriving (Eq, Show)
 data ResourceContext = DB | None deriving (Show)
 
 type family Context (a :: *) (r :: ResourceContext) :: *
-
