@@ -118,6 +118,7 @@ data CommentType = MediaComment | MediaVfileComment deriving (Eq, Show)
 newtype CommentId = CommentId Integer deriving (Eq, Show)
 
 data CommentNew ct = CommentNew { commentText'     :: Text
+                                , commentType'     :: SCommentType ct
                                 , commentSourceId' :: CommentSourceId ct
                                 , commentOwner'    :: UserId
                                 }
@@ -127,14 +128,17 @@ deriving instance Show (CommentSourceId ct) => Show (CommentNew ct)
 
 data CommentBase ct cxt = CommentBase { commentId        :: CommentId
                                       , commentText      :: Text
+                                      , commentType      :: SCommentType ct
                                       , commentSourceId  :: CommentSourceId ct
                                       , commentOwner     :: Context UserBase cxt
                                       }
 
-deriving instance ( Eq (CommentSourceId ct)
+deriving instance ( Eq (SCommentType ct)
+                  , Eq (CommentSourceId ct)
                   , Eq (Context UserBase cxt)
                   ) => Eq (CommentBase ct cxt)
-deriving instance ( Show (CommentSourceId ct)
+deriving instance ( Show (SCommentType ct)
+                  , Show (CommentSourceId ct)
                   , Show (Context UserBase cxt)
                   ) => Show (CommentBase ct cxt)
 
@@ -146,6 +150,9 @@ type instance CommentSourceId 'MediaVfileComment = MVFIdentifier
 data SCommentType ct where
   SMediaComment :: SCommentType 'MediaComment
   SMediaVfileComment :: SCommentType 'MediaVfileComment
+
+deriving instance Eq (SCommentType ct)
+deriving instance Show (SCommentType ct)
 
 --------------------------------------------------------------------------------
 -- | DB Types

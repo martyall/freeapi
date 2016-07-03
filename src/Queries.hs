@@ -21,20 +21,27 @@ getPersonsMedias = undefined
 
 -- In an ideal world of `media == media vfile` this function will be a lot
 -- more simple.
-ownsComment :: UserId -> CommentId -> SCommentType ct -> VFAlgebra db Bool
-ownsComment uId cId ct = do
-  case ct of
+ownsComment :: UserId -> CommentBase ct 'DB -> VFAlgebra db Bool
+ownsComment uId com = do
+  case commentType com of
     SMediaComment -> do
-      medId <- commentSourceId <$> readOp (SCommentCrud SMediaComment) cId
+      medId <- commentSourceId <$> readOp (SCommentCrud SMediaComment) (commentId com)
       med <- readOp SMediaCrud medId
       return $ (== uId) . mediaOwner $ med
     SMediaVfileComment -> do
-      mvfId <- commentSourceId <$> readOp (SCommentCrud SMediaVfileComment) cId
+      mvfId <- commentSourceId <$> readOp (SCommentCrud SMediaVfileComment) (commentId com)
       mvf <- readOp SMediaVfileCrud mvfId
       return $ (== uId) . mvfOwner $ mvf
 
+updateComment :: UserId -> CommentBase ct 'DB -> VFQA ()
+updateComment uId com = liftPG $ do
+  canEdit <- ownsComment uId com
+  if canEdit
+  then updateOp (SCommentCrud (commentType com)) com
+  else throwE (VfilesError "User doesn't have permission")
+
 --------------------------------------------------------------------------------
--- | Neo4j Interpreter
+-- | Neo4j CRUD Interpreter
 --------------------------------------------------------------------------------
 
 -- withConn :: Neo4j a -> IO a
@@ -51,6 +58,10 @@ crudNeo :: VFAlgebra 'Neo a
         -> IO (Either VfilesError a)
 crudNeo = (iterM crudNeoF) . runExceptT
 
+--------------------------------------------------------------------------------
+-- | PostgreSQL CRUD Interpreter
+--------------------------------------------------------------------------------
+
 crudPGF :: CrudF 'PG (IO (Either VfilesError a))
         -> IO (Either VfilesError a)
 crudPGF = undefined
@@ -58,6 +69,10 @@ crudPGF = undefined
 crudPG :: VFAlgebra 'PG a
        -> IO (Either VfilesError a)
 crudPG = (iterM crudPGF) . runExceptT
+
+--------------------------------------------------------------------------------
+-- | "Vfiles Query Algebra" (VFQA) Interpreter
+--------------------------------------------------------------------------------
 
 crudF :: VFSum (IO (Either VfilesError a))
       -> IO (Either VfilesError a)
