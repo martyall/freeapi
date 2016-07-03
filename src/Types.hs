@@ -15,13 +15,15 @@ import Data.Text (Text)
 --------------------------------------------------------------------------------
 newtype UserId = UserId Integer deriving (Eq, Show)
 
+newtype Username = Username Text deriving (Eq, Show)
+
 data UserNew = UserNew { email'     :: Text
-                       , username'  :: Text
+                       , username'  :: Username
                        } deriving (Eq, Show)
 
 data UserBase = UserBase { userId   :: UserId
                          , email    :: Text
-                         , username :: Text
+                         , username :: Username
                          } deriving (Eq, Show)
 
 type instance Context UserBase DB = UserId
@@ -90,13 +92,17 @@ data MediaVfileBase r = MediaVfileBase { mvfId      :: MediaVfileId
                                        , mvfCaption :: Maybe Caption
                                        , mvfMedia   :: Context (MediaBase r) r
                                        , mvfVfile   :: Context (VfileBase r) r
+                                       , mvfOwner   :: Context UserBase r
                                        }
 
-deriving instance (Eq (Context (MediaBase r) r), Eq (Context (VfileBase r) r))
-  => Eq (MediaVfileBase r)
-deriving instance (Show (Context (MediaBase r) r), Show (Context (VfileBase r) r))
-  => Show (MediaVfileBase r)
-
+deriving instance ( Eq (Context (MediaBase r) r)
+                  , Eq (Context (VfileBase r) r)
+                  , Eq (Context UserBase r)
+                  ) => Eq (MediaVfileBase r)
+deriving instance ( Show (Context (MediaBase r) r)
+                  , Show (Context (VfileBase r) r)
+                  , Show (Context UserBase r)
+                  ) => Show (MediaVfileBase r)
 
 data MVFIdentifier = MVFId MediaVfileId
                    | MVFPair (MediaId, VfileId)
@@ -113,33 +119,49 @@ newtype CommentId = CommentId Integer deriving (Eq, Show)
 
 data CommentNew ct = CommentNew { commentText'     :: Text
                                 , commentSourceId' :: CommentSourceId ct
+                                , commentOwner'    :: UserId
                                 }
 
 deriving instance Eq (CommentSourceId ct) => Eq (CommentNew ct)
 deriving instance Show (CommentSourceId ct) => Show (CommentNew ct)
 
-data CommentBase ct = CommentBase { commentId        :: CommentId
-                                  , commentText      :: Text
-                                  , commentSourceId  :: CommentSourceId ct
-                                  }
+data CommentBase ct cxt = CommentBase { commentId        :: CommentId
+                                      , commentText      :: Text
+                                      , commentSourceId  :: CommentSourceId ct
+                                      , commentOwner     :: Context UserBase cxt
+                                      }
 
-deriving instance Eq (CommentSourceId ct) => Eq (CommentBase ct)
-deriving instance Show (CommentSourceId ct) => Show (CommentBase ct)
+deriving instance ( Eq (CommentSourceId ct)
+                  , Eq (Context UserBase cxt)
+                  ) => Eq (CommentBase ct cxt)
+deriving instance ( Show (CommentSourceId ct)
+                  , Show (Context UserBase cxt)
+                  ) => Show (CommentBase ct cxt)
 
 type family CommentSourceId (a :: CommentType) :: *
 
 type instance CommentSourceId 'MediaComment = MediaId
 type instance CommentSourceId 'MediaVfileComment = MVFIdentifier
 
-data SComment ct where
-  SMediaComment :: SComment 'MediaComment
-  SMediaVfileComment :: SComment 'MediaVfileComment
+data SCommentType ct where
+  SMediaComment :: SCommentType 'MediaComment
+  SMediaVfileComment :: SCommentType 'MediaVfileComment
 
 --------------------------------------------------------------------------------
-newtype Caption = Caption Text deriving (Eq, Show)
+-- | DB Types
+--------------------------------------------------------------------------------
 
-newtype VfilesError = VfilesError Text deriving (Eq, Show)
+data DBType = PG | Neo deriving (Show)
 
 data ResourceContext = DB | None deriving (Show)
 
+data SResourceContext (cxt :: ResourceContext) where
+  SDB   :: SResourceContext 'DB
+  SNone :: SResourceContext 'None
+
 type family Context (a :: *) (r :: ResourceContext) :: *
+
+--------------------------------------------------------------------------------
+
+newtype VfilesError = VfilesError Text deriving (Eq, Show)
+newtype Caption = Caption Text deriving (Eq, Show)
