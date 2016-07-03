@@ -16,8 +16,12 @@ import Database.Neo4j.Transactional.Cypher
 getUsernameFromId :: UserId -> VFAlgebra db Username
 getUsernameFromId uId = username <$> readOp SUserCrud uId
 
+-- TODO: should incorporate another Query algebra to the effect of
+-- Object `getObjectBy` primaryKey
 getPersonsMedias :: UserId -> VFAlgebra db [MediaBase cxt]
 getPersonsMedias = undefined
+
+
 
 -- In an ideal world of `media == media vfile` this function will be a lot
 -- more simple.
@@ -34,10 +38,12 @@ ownsComment uId com = do
       return $ (== uId) . mvfOwner $ mvf
 
 updateComment :: UserId -> CommentBase ct 'DB -> VFQA ()
-updateComment uId com = liftPG $ do
-  canEdit <- ownsComment uId com
+updateComment uId com = do
+  canEdit <- liftPG $ ownsComment uId com
   if canEdit
-  then updateOp (SCommentCrud (commentType com)) com
+  then do
+    liftPG $ updateOp (SCommentCrud (commentType com)) com
+    liftNeo $ updateOp (SCommentCrud (commentType com)) com
   else throwE (VfilesError "User doesn't have permission")
 
 --------------------------------------------------------------------------------
@@ -82,14 +88,3 @@ crudF (InR neo) = crudNeoF neo
 crud :: VFQA a
      -> IO (Either VfilesError a)
 crud = (iterM crudF) . runExceptT
-
-
---crudPGF :: VFAlgebra 'PG a -> IO (Either VfilesError a)
---crudPGF = undefined
---
---crudSum :: VFSum a -> IO (Either VfilesError a)
---crudSum (InL pg) = crudPG $ ExceptT pg
---crudSum (InR neo) = crudNeo $ ExceptT neo
---
---crud :: VFQA a -> IO (Either VfilesError a)
---crud = iterM crudSum
