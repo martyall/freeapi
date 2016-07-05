@@ -13,7 +13,7 @@ import Database.Neo4j
 import Database.Neo4j.Transactional.Cypher
 
 
-getUsernameFromId :: UserId -> VFAlgebra db Username
+getUsernameFromId :: UserId -> VFAlgebra 'PG Username
 getUsernameFromId uId = username <$> readOp SUserCrud uId
 
 -- TODO: should incorporate another Query algebra to the effect of
@@ -21,30 +21,32 @@ getUsernameFromId uId = username <$> readOp SUserCrud uId
 getPersonsMedias :: UserId -> VFAlgebra db [MediaBase cxt]
 getPersonsMedias = undefined
 
-
-
--- In an ideal world of `media == media vfile` this function will be a lot
--- more simple.
-ownsComment :: UserId -> CommentBase ct 'DB -> VFAlgebra db Bool
-ownsComment uId com = do
-  case commentType com of
-    SMediaComment -> do
-      medId <- commentSourceId <$> readOp (SCommentCrud SMediaComment) (commentId com)
-      med <- readOp SMediaCrud medId
-      return $ (== uId) . mediaOwner $ med
-    SMediaVfileComment -> do
-      mvfId <- commentSourceId <$> readOp (SCommentCrud SMediaVfileComment) (commentId com)
-      mvf <- readOp SMediaVfileCrud mvfId
-      return $ (== uId) . mvfOwner $ mvf
+ownsComment :: UserId -> CommentBase ct 'DB -> Bool
+ownsComment uId com = (== uId) . commentOwner $ com
 
 updateComment :: UserId -> CommentBase ct 'DB -> VFQA ()
-updateComment uId com = do
-  canEdit <- liftPG $ ownsComment uId com
+updateComment uId com =
+  if ownsComment uId com
+  then do
+    withPG $ updateOp (SCommentCrud (commentType com)) com
+    withNeo $ updateOp (SCommentCrud (commentType com)) com
+  else throwE $ VfilesError "User doesn't have permission to edit comment"
+
+ownsMedia :: UserId -> MediaId -> VFAlgebra 'PG Bool
+ownsMedia uId mId = do
+  med <- readOp SMediaCrud mId
+  return $ (== uId) . mediaOwner $ med
+
+editMediaCaption :: UserId -> MediaId -> Maybe Caption -> VFQA ()
+editMediaCaption uId mId cap = do
+  canEdit <- withPG $ ownsMedia uId mId
   if canEdit
   then do
-    liftPG $ updateOp (SCommentCrud (commentType com)) com
-    liftNeo $ updateOp (SCommentCrud (commentType com)) com
-  else throwE (VfilesError "User doesn't have permission")
+    media <- withPG $ readOp (SMediaCrud) mId
+    withPG $ updateOp (SMediaCrud) $ media {mediaCaption = cap}
+    withNeo $ updateOp (SMediaCrud) $ media {mediaCaption = cap}
+  else
+    throwE $ VfilesError "User doesn't have permission to edit caption"
 
 --------------------------------------------------------------------------------
 -- | Neo4j CRUD Interpreter

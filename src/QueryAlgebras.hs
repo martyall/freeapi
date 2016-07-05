@@ -6,11 +6,9 @@ module QueryAlgebras where
 import Types
 import Control.Error
 import Control.Monad.Free
-import Control.Monad.Trans.Class
-
 
 --------------------------------------------------------------------------------
--- | VFCRUD types
+-- | Basic CRUD operations
 --------------------------------------------------------------------------------
 
 data VFCrudable = UserCrud
@@ -56,7 +54,7 @@ data CrudF (db :: DBType) next :: * where
   ReadOp   :: SCrudable c
            -> ReadData c
            -> (Either VfilesError (BaseData c) -> next)
-           -> CrudF db next
+           -> CrudF 'PG next
   UpdateOp :: SCrudable c
            -> BaseData c
            -> (Either VfilesError () -> next)
@@ -74,21 +72,6 @@ instance Functor (CrudF db) where
 
 type VFAlgebra db a = ExceptT VfilesError (Free (CrudF db)) a
 
-data VFSum a = InL (CrudF 'PG a)
-             | InR (CrudF 'Neo a)
-
-instance Functor VFSum where
-  fmap f (InL a) = InL (fmap f a)
-  fmap f (InR a) = InR (fmap f a)
-
-type VFQA a = ExceptT VfilesError (Free VFSum) a
-
-liftPG :: forall a. VFAlgebra 'PG a -> VFQA a
-liftPG = mapExceptT $ hoistFree InL
-
-liftNeo :: forall a. VFAlgebra 'Neo a -> VFQA a
-liftNeo = mapExceptT $ hoistFree InR
-
 --------------------------------------------------------------------------------
 -- | Smart Constructors
 --------------------------------------------------------------------------------
@@ -100,7 +83,7 @@ createOp SVfileCrud n = ExceptT . Free $ CreateOp SVfileCrud n Pure
 createOp SMediaVfileCrud n = ExceptT . Free $ CreateOp SMediaVfileCrud n Pure
 createOp (SCommentCrud ct) n = ExceptT . Free $ CreateOp (SCommentCrud ct) n Pure
 
-readOp :: SCrudable c -> ReadData c -> VFAlgebra db (BaseData c)
+readOp :: SCrudable c -> ReadData c -> VFAlgebra 'PG (BaseData c)
 readOp SUserCrud r = ExceptT . Free $ ReadOp SUserCrud r Pure
 readOp SMediaCrud r = ExceptT . Free $ ReadOp SMediaCrud r Pure
 readOp SVfileCrud r = ExceptT . Free $ ReadOp SVfileCrud r Pure
@@ -124,4 +107,18 @@ deleteOp (SCommentCrud ct) r = ExceptT . Free $ DeleteOp (SCommentCrud ct) r Pur
 --------------------------------------------------------------------------------
 -- | Composite Query Algebra
 --------------------------------------------------------------------------------
--- selectBy :: SCrudable c -> 
+
+data VFSum a = InL (CrudF 'PG a)
+             | InR (CrudF 'Neo a)
+
+instance Functor VFSum where
+  fmap f (InL a) = InL (fmap f a)
+  fmap f (InR a) = InR (fmap f a)
+
+type VFQA a = ExceptT VfilesError (Free VFSum) a
+
+withPG :: forall a. VFAlgebra 'PG a -> VFQA a
+withPG = mapExceptT $ hoistFree InL
+
+withNeo :: forall a. VFAlgebra 'Neo a -> VFQA a
+withNeo = mapExceptT $ hoistFree InR
