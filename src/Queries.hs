@@ -13,38 +13,38 @@ import Database.Neo4j
 import Database.Neo4j.Transactional.Cypher
 
 
-getUsernameFromId :: UserId -> VFAlgebra 'PG Username
-getUsernameFromId uId = username <$> readOp SUserCrud uId
+getUsernameFromId :: UserId -> PGCrud Username
+getUsernameFromId uId = username <$> readPG SUserCrud uId
 
 -- TODO: should incorporate another Query algebra to the effect of
 -- Object `getObjectBy` primaryKey
-getPersonsMedias :: UserId -> VFAlgebra db [MediaBase cxt]
+getPersonsMedias :: UserId -> PGCrud [MediaBase cxt]
 getPersonsMedias = undefined
 
 ownsComment :: UserId -> CommentBase ct 'DB -> Bool
 ownsComment uId com = (== uId) . commentOwner $ com
 
-updateComment :: UserId -> CommentBase ct 'DB -> VFQA ()
+updateComment :: UserId -> CommentBase ct 'DB -> VFCrud ()
 updateComment uId com =
   if ownsComment uId com
   then do
-    withPG $ updateOp (SCommentCrud (commentType com)) com
-    withNeo $ updateOp (SCommentCrud (commentType com)) com
+    withPG $ updatePG (SCommentCrud (commentType com)) com
+    withNeo $ updateNeo (SCommentCrud (commentType com)) com
   else throwE $ VfilesError "User doesn't have permission to edit comment"
 
-ownsMedia :: UserId -> MediaId -> VFAlgebra 'PG Bool
+ownsMedia :: UserId -> MediaId -> PGCrud Bool
 ownsMedia uId mId = do
-  med <- readOp SMediaCrud mId
+  med <- readPG SMediaCrud mId
   return $ (== uId) . mediaOwner $ med
 
-editMediaCaption :: UserId -> MediaId -> Maybe Caption -> VFQA ()
+editMediaCaption :: UserId -> MediaId -> Maybe Caption -> VFCrud ()
 editMediaCaption uId mId cap = do
   canEdit <- withPG $ ownsMedia uId mId
   if canEdit
   then do
-    media <- withPG $ readOp (SMediaCrud) mId
-    withPG $ updateOp (SMediaCrud) $ media {mediaCaption = cap}
-    withNeo $ updateOp (SMediaCrud) $ media {mediaCaption = cap}
+    media <- withPG $ readPG (SMediaCrud) mId
+    withPG $ updatePG (SMediaCrud) $ media {mediaCaption = cap}
+    withNeo $ updateNeo (SMediaCrud) $ media {mediaCaption = cap}
   else
     throwE $ VfilesError "User doesn't have permission to edit caption"
 
@@ -58,11 +58,11 @@ editMediaCaption uId mId cap = do
 -- runQuery :: Text -> Params -> IO (Either TransError Result)
 -- runQuery q params = withConn (runTransaction $ cypher q params)
 
-crudNeoF :: CrudF 'Neo (IO (Either VfilesError a))
+crudNeoF :: NeoCrudF (IO (Either VfilesError a))
          -> IO (Either VfilesError a)
 crudNeoF = undefined
 
-crudNeo :: VFAlgebra 'Neo a
+crudNeo :: NeoCrud a
         -> IO (Either VfilesError a)
 crudNeo = (iterM crudNeoF) . runExceptT
 
@@ -70,11 +70,11 @@ crudNeo = (iterM crudNeoF) . runExceptT
 -- | PostgreSQL CRUD Interpreter
 --------------------------------------------------------------------------------
 
-crudPGF :: CrudF 'PG (IO (Either VfilesError a))
+crudPGF :: PGCrudF (IO (Either VfilesError a))
         -> IO (Either VfilesError a)
 crudPGF = undefined
 
-crudPG :: VFAlgebra 'PG a
+crudPG :: PGCrud a
        -> IO (Either VfilesError a)
 crudPG = (iterM crudPGF) . runExceptT
 
@@ -84,9 +84,9 @@ crudPG = (iterM crudPGF) . runExceptT
 
 crudF :: VFSum (IO (Either VfilesError a))
       -> IO (Either VfilesError a)
-crudF (InL pg) = crudPGF pg
-crudF (InR neo) = crudNeoF neo
+crudF (InPGCrud pg) = crudPGF pg
+crudF (InNeoCrud neo) = crudNeoF neo
 
-crud :: VFQA a
+crud :: VFCrud a
      -> IO (Either VfilesError a)
 crud = (iterM crudF) . runExceptT

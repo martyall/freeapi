@@ -9,9 +9,6 @@ import Control.Error
 import Control.Monad.Free
 import Data.Singletons.TH
 
---------------------------------------------------------------------------------
--- | Basic CRUD operations
---------------------------------------------------------------------------------
 
 data VFCrudable = UserCrud
                 | MediaCrud
@@ -22,17 +19,12 @@ data VFCrudable = UserCrud
 
 genSingletons [ ''VFCrudable ]
 
-type family NewData (db :: DBType) (c :: VFCrudable) :: * where
-  NewData 'PG 'UserCrud = UserNew
-  NewData 'PG 'MediaCrud = MediaNew
-  NewData 'PG 'VfileCrud = VfileNew
-  NewData 'PG 'MediaVfileCrud = MediaVfileNew
-  NewData 'PG ('CommentCrud ct) = CommentNew ct
-  NewData 'Neo 'UserCrud = UserBase
-  NewData 'Neo 'MediaCrud = MediaBase 'DB
-  NewData 'Neo 'VfileCrud = VfileBase 'DB
-  NewData 'Neo 'MediaVfileCrud = MediaVfileBase 'DB
-  NewData 'Neo ('CommentCrud ct) = CommentBase ct 'DB
+type family NewData (c :: VFCrudable) :: * where
+  NewData 'UserCrud  = UserNew
+  NewData 'MediaCrud = MediaNew
+  NewData 'VfileCrud = VfileNew
+  NewData 'MediaVfileCrud = MediaVfileNew
+  NewData ('CommentCrud ct) = CommentNew ct
 
 type family BaseData (c :: VFCrudable) :: * where
   BaseData 'UserCrud = UserBase
@@ -48,63 +40,105 @@ type family ReadData (c :: VFCrudable) :: * where
   ReadData 'MediaVfileCrud = MVFIdentifier
   ReadData ('CommentCrud ct) = CommentId
 
-data CrudF (db :: DBType) next :: * where
-  CreateOp :: Sing c
-           -> NewData db c
+--------------------------------------------------------------------------------
+-- | Basic PG-CRUD operations
+--------------------------------------------------------------------------------
+
+data PGCrudF next :: * where
+  CreatePG :: Sing (c :: VFCrudable)
+           -> NewData c
            -> (Either VfilesError (BaseData c) -> next)
-           -> CrudF db next
-  ReadOp   :: Sing c
+           -> PGCrudF next
+  ReadPG   :: Sing (c :: VFCrudable)
            -> ReadData c
            -> (Either VfilesError (BaseData c) -> next)
-           -> CrudF 'PG next
-  UpdateOp :: Sing c
+           -> PGCrudF next
+  UpdatePG :: Sing (c :: VFCrudable)
            -> BaseData c
            -> (Either VfilesError () -> next)
-           -> CrudF db next
-  DeleteOp :: Sing c
+           -> PGCrudF next
+  DeletePG :: Sing (c :: VFCrudable)
            -> ReadData c
            -> (Either VfilesError () -> next)
-           -> CrudF db next
+           -> PGCrudF next
 
-instance Functor (CrudF db) where
-  fmap f (CreateOp c n next) = CreateOp c n $ f . next
-  fmap f (ReadOp c i next) = ReadOp c i $ f . next
-  fmap f (UpdateOp c b next) = UpdateOp c b $ f . next
-  fmap f (DeleteOp c i next) = DeleteOp c i $ f . next
+instance Functor PGCrudF where
+  fmap f (CreatePG c n next) = CreatePG c n $ f . next
+  fmap f (ReadPG c i next) = ReadPG c i $ f . next
+  fmap f (UpdatePG c b next) = UpdatePG c b $ f . next
+  fmap f (DeletePG c i next) = DeletePG c i $ f . next
 
-type VFAlgebra db a = ExceptT VfilesError (Free (CrudF db)) a
+type PGCrud a = ExceptT VfilesError (Free PGCrudF) a
 
 --------------------------------------------------------------------------------
--- | Smart Constructors
+-- | Smart PG-CRUD Constructors
 --------------------------------------------------------------------------------
 
-createOp :: Sing c -> NewData db c -> VFAlgebra db (BaseData c)
-createOp c n = ExceptT . Free $ CreateOp c n Pure
+createPG :: Sing (c :: VFCrudable) -> NewData c -> PGCrud (BaseData c)
+createPG c n = ExceptT . Free $ CreatePG c n Pure
 
-readOp :: Sing c -> ReadData c -> VFAlgebra 'PG (BaseData c)
-readOp c n = ExceptT . Free $ ReadOp c n Pure
+readPG :: Sing (c :: VFCrudable) -> ReadData c -> PGCrud (BaseData c)
+readPG c n = ExceptT . Free $ ReadPG c n Pure
 
-updateOp :: Sing c -> BaseData c -> VFAlgebra db ()
-updateOp c n = ExceptT . Free $ UpdateOp c n Pure
+updatePG :: Sing (c :: VFCrudable) -> BaseData c -> PGCrud ()
+updatePG c n = ExceptT . Free $ UpdatePG c n Pure
 
-deleteOp :: Sing c -> ReadData c -> VFAlgebra db ()
-deleteOp c n = ExceptT . Free $ DeleteOp c n Pure
+deletePG :: Sing (c :: VFCrudable) -> ReadData c -> PGCrud ()
+deletePG c n = ExceptT . Free $ DeletePG c n Pure
+
+--------------------------------------------------------------------------------
+-- | Basic Neo-CRUD operations
+--------------------------------------------------------------------------------
+
+data NeoCrudF next :: * where
+  CreateNeo :: Sing (c :: VFCrudable)
+            -> BaseData c
+            -> (Either VfilesError () -> next)
+            -> NeoCrudF next
+  UpdateNeo :: Sing (c :: VFCrudable)
+            -> BaseData c
+            -> (Either VfilesError () -> next)
+            -> NeoCrudF next
+  DeleteNeo :: Sing (c :: VFCrudable)
+            -> ReadData c
+            -> (Either VfilesError () -> next)
+            -> NeoCrudF next
+
+instance Functor NeoCrudF where
+  fmap f (CreateNeo c n next) = CreateNeo c n $ f . next
+  fmap f (UpdateNeo c b next) = UpdateNeo c b $ f . next
+  fmap f (DeleteNeo c i next) = DeleteNeo c i $ f . next
+
+type NeoCrud a = ExceptT VfilesError (Free NeoCrudF) a
+
+--------------------------------------------------------------------------------
+-- | Smart Neo-CRUD Constructors
+--------------------------------------------------------------------------------
+
+createNeo :: Sing (c :: VFCrudable) -> BaseData c -> NeoCrud ()
+createNeo c n = ExceptT . Free $ CreateNeo c n Pure
+
+updateNeo :: Sing (c :: VFCrudable) -> BaseData c -> NeoCrud ()
+updateNeo c n = ExceptT . Free $ UpdateNeo c n Pure
+
+deleteNeo :: Sing (c :: VFCrudable) -> ReadData c -> NeoCrud ()
+deleteNeo c n = ExceptT . Free $ DeleteNeo c n Pure
 
 --------------------------------------------------------------------------------
 -- | Composite Query Algebra
 --------------------------------------------------------------------------------
 
-data VFSum a = InL (CrudF 'PG a)
-             | InR (CrudF 'Neo a)
+data VFSum a = InPGCrud (PGCrudF a)
+             | InNeoCrud (NeoCrudF a)
 
 instance Functor VFSum where
-  fmap f (InL a) = InL (fmap f a)
-  fmap f (InR a) = InR (fmap f a)
+  fmap f (InPGCrud a) = InPGCrud (fmap f a)
+  fmap f (InNeoCrud a) = InNeoCrud (fmap f a)
 
-type VFQA a = ExceptT VfilesError (Free VFSum) a
+type VFCrud a = ExceptT VfilesError (Free VFSum) a
 
-withPG :: forall a. VFAlgebra 'PG a -> VFQA a
-withPG = mapExceptT $ hoistFree InL
+withPG :: forall a. PGCrud a -> VFCrud a
+withPG = mapExceptT $ hoistFree InPGCrud
 
-withNeo :: forall a. VFAlgebra 'Neo a -> VFQA a
-withNeo = mapExceptT $ hoistFree InR
+withNeo :: forall a. NeoCrud a -> VFCrud a
+withNeo = mapExceptT $ hoistFree InNeoCrud

@@ -65,7 +65,6 @@ data MediaBase r = MediaBase { mediaId      :: MediaId
                              , mediaOwner   :: Context UserBase r
                              }
 
-deriving instance Eq (Context UserBase r) => Eq (MediaBase r)
 deriving instance Show (Context UserBase r) => Show (MediaBase r)
 
 type instance Context (MediaBase r) DB = MediaId
