@@ -1,11 +1,14 @@
 {-# LANGUAGE GADTs, DataKinds, TypeFamilies #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE TemplateHaskell#-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module QueryAlgebras where
 
 import Types
 import Control.Error
 import Control.Monad.Free
+import Data.Singletons.TH
 
 --------------------------------------------------------------------------------
 -- | Basic CRUD operations
@@ -18,12 +21,7 @@ data VFCrudable = UserCrud
                 | CommentCrud CommentType
                 deriving (Show)
 
-data SCrudable a where
-  SUserCrud       :: SCrudable 'UserCrud
-  SMediaCrud      :: SCrudable 'MediaCrud
-  SVfileCrud      :: SCrudable 'VfileCrud
-  SMediaVfileCrud :: SCrudable 'MediaVfileCrud
-  SCommentCrud    :: SCommentType ct -> SCrudable ('CommentCrud ct)
+genSingletons [ ''VFCrudable ]
 
 type family NewData (c :: VFCrudable) :: * where
   NewData 'UserCrud = UserNew
@@ -47,19 +45,19 @@ type family ReadData (c :: VFCrudable) :: * where
   ReadData ('CommentCrud ct) = CommentId
 
 data CrudF (db :: DBType) next :: * where
-  CreateOp :: SCrudable c
+  CreateOp :: Sing c
            -> NewData c
            -> (Either VfilesError (BaseData c) -> next)
            -> CrudF db next
-  ReadOp   :: SCrudable c
+  ReadOp   :: Sing c
            -> ReadData c
            -> (Either VfilesError (BaseData c) -> next)
            -> CrudF 'PG next
-  UpdateOp :: SCrudable c
+  UpdateOp :: Sing c
            -> BaseData c
            -> (Either VfilesError () -> next)
            -> CrudF db next
-  DeleteOp :: SCrudable c
+  DeleteOp :: Sing c
            -> ReadData c
            -> (Either VfilesError () -> next)
            -> CrudF db next
@@ -76,33 +74,17 @@ type VFAlgebra db a = ExceptT VfilesError (Free (CrudF db)) a
 -- | Smart Constructors
 --------------------------------------------------------------------------------
 
-createOp :: SCrudable c -> NewData c -> VFAlgebra db (BaseData c)
-createOp SUserCrud n = ExceptT . Free $ CreateOp SUserCrud n  Pure
-createOp SMediaCrud n = ExceptT . Free $ CreateOp SMediaCrud n Pure
-createOp SVfileCrud n = ExceptT . Free $ CreateOp SVfileCrud n Pure
-createOp SMediaVfileCrud n = ExceptT . Free $ CreateOp SMediaVfileCrud n Pure
-createOp (SCommentCrud ct) n = ExceptT . Free $ CreateOp (SCommentCrud ct) n Pure
+createOp :: Sing c -> NewData c -> VFAlgebra db (BaseData c)
+createOp c n = ExceptT . Free $ CreateOp c n Pure
 
-readOp :: SCrudable c -> ReadData c -> VFAlgebra 'PG (BaseData c)
-readOp SUserCrud r = ExceptT . Free $ ReadOp SUserCrud r Pure
-readOp SMediaCrud r = ExceptT . Free $ ReadOp SMediaCrud r Pure
-readOp SVfileCrud r = ExceptT . Free $ ReadOp SVfileCrud r Pure
-readOp SMediaVfileCrud r = ExceptT . Free $ ReadOp SMediaVfileCrud r Pure
-readOp (SCommentCrud ct) r = ExceptT . Free $ ReadOp (SCommentCrud ct) r Pure
+readOp :: Sing c -> ReadData c -> VFAlgebra 'PG (BaseData c)
+readOp c n = ExceptT . Free $ ReadOp c n Pure
 
-updateOp :: SCrudable c -> BaseData c -> VFAlgebra db ()
-updateOp SUserCrud b = ExceptT . Free $ UpdateOp SUserCrud b Pure
-updateOp SMediaCrud b = ExceptT . Free $ UpdateOp SMediaCrud b Pure
-updateOp SVfileCrud b = ExceptT . Free $ UpdateOp SVfileCrud b Pure
-updateOp SMediaVfileCrud b = ExceptT . Free $ UpdateOp SMediaVfileCrud b Pure
-updateOp (SCommentCrud ct) b = ExceptT . Free $ UpdateOp (SCommentCrud ct) b Pure
+updateOp :: Sing c -> BaseData c -> VFAlgebra db ()
+updateOp c n = ExceptT . Free $ UpdateOp c n Pure
 
-deleteOp :: SCrudable c -> ReadData c -> VFAlgebra db ()
-deleteOp SUserCrud r = ExceptT . Free $ DeleteOp SUserCrud r Pure
-deleteOp SMediaCrud r = ExceptT . Free $ DeleteOp SMediaCrud r Pure
-deleteOp SVfileCrud r = ExceptT . Free $ DeleteOp SVfileCrud r Pure
-deleteOp SMediaVfileCrud r = ExceptT . Free $ DeleteOp SMediaVfileCrud r Pure
-deleteOp (SCommentCrud ct) r = ExceptT . Free $ DeleteOp (SCommentCrud ct) r Pure
+deleteOp :: Sing c -> ReadData c -> VFAlgebra db ()
+deleteOp c n = ExceptT . Free $ DeleteOp c n Pure
 
 --------------------------------------------------------------------------------
 -- | Composite Query Algebra

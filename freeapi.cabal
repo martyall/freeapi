@@ -23,6 +23,7 @@ library
                      , errors
                      , free
                      , haskell-neo4j-client
+                     , singletons
                      , text
                      , transformers
   default-language:    Haskell2010

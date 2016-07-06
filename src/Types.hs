@@ -4,11 +4,32 @@
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module Types where
 
 import Data.Text (Text)
+import Data.Singletons.TH
 
+
+--------------------------------------------------------------------------------
+-- | DB Types
+--------------------------------------------------------------------------------
+
+data DBType = PG | Neo deriving (Show)
+
+data ResourceContext = DB | None deriving (Show)
+
+data SResourceContext (cxt :: ResourceContext) where
+  SDB   :: SResourceContext 'DB
+  SNone :: SResourceContext 'None
+
+type family Context (a :: *) (r :: ResourceContext) :: *
+
+--------------------------------------------------------------------------------
+
+newtype VfilesError = VfilesError Text deriving (Eq, Show)
+newtype Caption = Caption Text deriving (Eq, Show)
 
 --------------------------------------------------------------------------------
 -- | User
@@ -113,7 +134,11 @@ type instance Context (MediaVfileBase r) None = MediaVfileBase None
 --------------------------------------------------------------------------------
 -- | Comment
 --------------------------------------------------------------------------------
-data CommentType = MediaComment | MediaVfileComment deriving (Eq, Show)
+data CommentType = MediaComment
+                 | MediaVfileComment
+                   deriving (Eq, Show)
+
+genSingletons [ ''CommentType ]
 
 newtype CommentId = CommentId Integer deriving (Eq, Show)
 
@@ -123,9 +148,6 @@ data CommentNew ct = CommentNew { commentText'     :: Text
                                 , commentOwner'    :: UserId
                                 }
 
-deriving instance Eq (CommentSourceId ct) => Eq (CommentNew ct)
-deriving instance Show (CommentSourceId ct) => Show (CommentNew ct)
-
 data CommentBase ct cxt = CommentBase { commentId        :: CommentId
                                       , commentText      :: Text
                                       , commentType      :: SCommentType ct
@@ -133,10 +155,6 @@ data CommentBase ct cxt = CommentBase { commentId        :: CommentId
                                       , commentOwner     :: Context UserBase cxt
                                       }
 
-deriving instance ( Eq (SCommentType ct)
-                  , Eq (CommentSourceId ct)
-                  , Eq (Context UserBase cxt)
-                  ) => Eq (CommentBase ct cxt)
 deriving instance ( Show (SCommentType ct)
                   , Show (CommentSourceId ct)
                   , Show (Context UserBase cxt)
@@ -147,28 +165,3 @@ type family CommentSourceId (a :: CommentType) :: *
 type instance CommentSourceId 'MediaComment = MediaId
 type instance CommentSourceId 'MediaVfileComment = MVFIdentifier
 
-data SCommentType ct where
-  SMediaComment :: SCommentType 'MediaComment
-  SMediaVfileComment :: SCommentType 'MediaVfileComment
-
-deriving instance Eq (SCommentType ct)
-deriving instance Show (SCommentType ct)
-
---------------------------------------------------------------------------------
--- | DB Types
---------------------------------------------------------------------------------
-
-data DBType = PG | Neo deriving (Show)
-
-data ResourceContext = DB | None deriving (Show)
-
-data SResourceContext (cxt :: ResourceContext) where
-  SDB   :: SResourceContext 'DB
-  SNone :: SResourceContext 'None
-
-type family Context (a :: *) (r :: ResourceContext) :: *
-
---------------------------------------------------------------------------------
-
-newtype VfilesError = VfilesError Text deriving (Eq, Show)
-newtype Caption = Caption Text deriving (Eq, Show)
