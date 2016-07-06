@@ -77,14 +77,13 @@ newtype VfileId = VfileId Integer deriving (Eq, Show)
 
 data VfileNew = VfileNew { vfileCaption'  :: Maybe Caption
                          , vfileOwner'    :: UserId
-                         } deriving (Eq, Show)
+                         } deriving (Show)
 
 data VfileBase r = VfileBase { vfileId      :: VfileId
                              , vfileCaption :: Maybe Caption
                              , vfileOwner   :: Context UserBase r
                              }
 
-deriving instance Eq (Context UserBase r) => Eq (VfileBase r)
 deriving instance Show (Context UserBase r) => Show (VfileBase r)
 
 
@@ -92,8 +91,6 @@ data Vfile r = Vfile { vfileBase :: Context (VfileBase r) r
                      , medias    :: [Context (MediaVfileBase r) r]
                      }
 
-deriving instance (Eq (Context (MediaVfileBase r) r), Eq (Context (VfileBase r) r))
-  => Eq (Vfile r)
 deriving instance (Show (Context (MediaVfileBase r) r), Show (Context (VfileBase r) r))
   => Show (Vfile r)
 
@@ -116,10 +113,6 @@ data MediaVfileBase r = MediaVfileBase { mvfId      :: MediaVfileId
                                        , mvfOwner   :: Context UserBase r
                                        }
 
-deriving instance ( Eq (Context (MediaBase r) r)
-                  , Eq (Context (VfileBase r) r)
-                  , Eq (Context UserBase r)
-                  ) => Eq (MediaVfileBase r)
 deriving instance ( Show (Context (MediaBase r) r)
                   , Show (Context (VfileBase r) r)
                   , Show (Context UserBase r)
@@ -164,4 +157,3 @@ type family CommentSourceId (a :: CommentType) :: *
 
 type instance CommentSourceId 'MediaComment = MediaId
 type instance CommentSourceId 'MediaVfileComment = MVFIdentifier
-

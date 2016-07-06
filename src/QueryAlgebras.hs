@@ -23,12 +23,17 @@ data VFCrudable = UserCrud
 
 genSingletons [ ''VFCrudable ]
 
-type family NewData (c :: VFCrudable) :: * where
-  NewData 'UserCrud = UserNew
-  NewData 'MediaCrud = MediaNew
-  NewData 'VfileCrud = VfileNew
-  NewData 'MediaVfileCrud = MediaVfileNew
-  NewData ('CommentCrud ct) = CommentNew ct
+type family NewData (db :: DBType) (c :: VFCrudable) :: * where
+  NewData 'PG 'UserCrud = UserNew
+  NewData 'PG 'MediaCrud = MediaNew
+  NewData 'PG 'VfileCrud = VfileNew
+  NewData 'PG 'MediaVfileCrud = MediaVfileNew
+  NewData 'PG ('CommentCrud ct) = CommentNew ct
+  NewData 'Neo 'UserCrud = UserBase
+  NewData 'Neo 'MediaCrud = MediaBase 'DB
+  NewData 'Neo 'VfileCrud = VfileBase 'DB
+  NewData 'Neo 'MediaVfileCrud = MediaVfileBase 'DB
+  NewData 'Neo ('CommentCrud ct) = CommentBase ct 'DB
 
 type family BaseData (c :: VFCrudable) :: * where
   BaseData 'UserCrud = UserBase
@@ -46,7 +51,7 @@ type family ReadData (c :: VFCrudable) :: * where
 
 data CrudF (db :: DBType) next :: * where
   CreateOp :: Sing c
-           -> NewData c
+           -> NewData db c
            -> (Either VfilesError (BaseData c) -> next)
            -> CrudF db next
   ReadOp   :: Sing c
@@ -74,7 +79,7 @@ type VFAlgebra db a = ExceptT VfilesError (Free (CrudF db)) a
 -- | Smart Constructors
 --------------------------------------------------------------------------------
 
-createOp :: Sing c -> NewData c -> VFAlgebra db (BaseData c)
+createOp :: Sing c -> NewData db c -> VFAlgebra db (BaseData c)
 createOp c n = ExceptT . Free $ CreateOp c n Pure
 
 readOp :: Sing c -> ReadData c -> VFAlgebra 'PG (BaseData c)
