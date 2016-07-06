@@ -1,7 +1,6 @@
 {-# LANGUAGE GADTs, DataKinds, TypeFamilies #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TemplateHaskell#-}
-{-# LANGUAGE ScopedTypeVariables #-}
 
 module QueryAlgebras where
 
