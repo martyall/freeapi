@@ -1,6 +1,8 @@
 {-# LANGUAGE GADTs, DataKinds, TypeFamilies #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TemplateHaskell#-}
+{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE FlexibleInstances #-}
 
 module QueryAlgebras where
 
@@ -68,7 +70,7 @@ instance Functor PGCrudF where
   fmap f (UpdatePG c b next) = UpdatePG c b $ f . next
   fmap f (DeletePG c i next) = DeletePG c i $ f . next
 
-type PGCrud a = ExceptT VfilesError (Free PGCrudF) a
+type PGCrud = ExceptT VfilesError (Free PGCrudF)
 
 --------------------------------------------------------------------------------
 -- | Smart PG-CRUD Constructors
@@ -109,7 +111,7 @@ instance Functor NeoCrudF where
   fmap f (UpdateNeo c b next) = UpdateNeo c b $ f . next
   fmap f (DeleteNeo c i next) = DeleteNeo c i $ f . next
 
-type NeoCrud a = ExceptT VfilesError (Free NeoCrudF) a
+type NeoCrud = ExceptT VfilesError (Free NeoCrudF)
 
 --------------------------------------------------------------------------------
 -- | Smart Neo-CRUD Constructors
@@ -135,10 +137,16 @@ instance Functor VFSum where
   fmap f (InPGCrud a) = InPGCrud (fmap f a)
   fmap f (InNeoCrud a) = InNeoCrud (fmap f a)
 
-type VFCrud a = ExceptT VfilesError (Free VFSum) a
+type VFCrud = ExceptT VfilesError (Free VFSum)
 
-withPG :: forall a. PGCrud a -> VFCrud a
-withPG = mapExceptT $ hoistFree InPGCrud
+class Monad m => MonadPGCrud m where
+  liftPG :: forall a. PGCrud a -> m a
 
-withNeo :: forall a. NeoCrud a -> VFCrud a
-withNeo = mapExceptT $ hoistFree InNeoCrud
+instance MonadPGCrud VFCrud where
+  liftPG = mapExceptT $ hoistFree InPGCrud
+
+class Monad m => MonadNeoCrud m where
+  liftNeo :: forall a. NeoCrud a -> m a
+
+instance MonadNeoCrud VFCrud where
+  liftNeo = mapExceptT $ hoistFree InNeoCrud

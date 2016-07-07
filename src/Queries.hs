@@ -28,8 +28,8 @@ updateComment :: UserId -> CommentBase ct 'DB -> VFCrud ()
 updateComment uId com =
   if ownsComment uId com
   then do
-    withPG $ updatePG (SCommentCrud (commentType com)) com
-    withNeo $ updateNeo (SCommentCrud (commentType com)) com
+    liftPG $ updatePG (SCommentCrud (commentType com)) com
+    liftNeo $ updateNeo (SCommentCrud (commentType com)) com
   else throwE $ VfilesError "User doesn't have permission to edit comment"
 
 ownsMedia :: UserId -> MediaId -> PGCrud Bool
@@ -39,12 +39,12 @@ ownsMedia uId mId = do
 
 editMediaCaption :: UserId -> MediaId -> Maybe Caption -> VFCrud ()
 editMediaCaption uId mId cap = do
-  canEdit <- withPG $ ownsMedia uId mId
+  canEdit <- liftPG $ ownsMedia uId mId
   if canEdit
   then do
-    media <- withPG $ readPG (SMediaCrud) mId
-    withPG $ updatePG (SMediaCrud) $ media {mediaCaption = cap}
-    withNeo $ updateNeo (SMediaCrud) $ media {mediaCaption = cap}
+    media <- liftPG $ readPG (SMediaCrud) mId
+    liftPG $ updatePG (SMediaCrud) $ media {mediaCaption = cap}
+    liftNeo $ updateNeo (SMediaCrud) $ media {mediaCaption = cap}
   else
     throwE $ VfilesError "User doesn't have permission to edit caption"
 
