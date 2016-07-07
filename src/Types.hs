@@ -102,7 +102,7 @@ data MediaVfileBase r = MediaVfileBase { mvfId      :: MediaVfileId
                                        }
 
 data MVFIdentifier = MVFId MediaVfileId
-                   | MVFPair (MediaId, VfileId)
+                   | MVFPair MediaId VfileId
 
 type instance Context (MediaVfileBase r) DB = MediaVfileId
 type instance Context (MediaVfileBase r) None = MediaVfileBase None

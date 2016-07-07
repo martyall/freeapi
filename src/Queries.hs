@@ -24,12 +24,13 @@ getPersonsMedias = undefined
 ownsComment :: UserId -> CommentBase ct 'DB -> Bool
 ownsComment uId com = (== uId) . commentOwner $ com
 
-updateComment :: UserId -> CommentBase ct 'DB -> VFCrud ()
-updateComment uId com = do
+updateComment :: UserId -> CommentIdentifier ct -> Text -> VFCrud ()
+updateComment uId comId@(CommentIdentifier _ comType) txt = do
+  com <- liftPG $ readPG (SCommentCrud comType) comId
   if ownsComment uId com
   then do
-    liftPG $ updatePG (SCommentCrud (commentType com)) com
-    liftNeo $ updateNeo (SCommentCrud (commentType com)) com
+    liftPG $ updatePG (SCommentCrud comType) $ com {commentText = txt}
+    liftNeo $ updateNeo (SCommentCrud comType) $ com {commentText = txt}
   else throwE $ VfilesError "User doesn't have permission to edit comment"
 
 ownsMedia :: UserId -> MediaId -> PGCrud Bool
