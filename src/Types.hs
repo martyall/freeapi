@@ -16,9 +16,9 @@ import Data.Singletons.TH
 -- | DB Types
 --------------------------------------------------------------------------------
 
-data DBType = PG | Neo deriving (Show)
+data DBType = PG | Neo
 
-data ResourceContext = DB | None deriving (Show)
+data ResourceContext = DB | None
 
 data SResourceContext (cxt :: ResourceContext) where
   SDB   :: SResourceContext 'DB
@@ -28,36 +28,36 @@ type family Context (a :: *) (r :: ResourceContext) :: *
 
 --------------------------------------------------------------------------------
 
-newtype VfilesError = VfilesError Text deriving (Eq, Show)
-newtype Caption = Caption Text deriving (Eq, Show)
+newtype VfilesError = VfilesError Text
+newtype Caption = Caption Text
 
 --------------------------------------------------------------------------------
 -- | User
 --------------------------------------------------------------------------------
-newtype UserId = UserId Integer deriving (Eq, Show)
+newtype UserId = UserId Integer deriving Eq
 
-newtype Username = Username Text deriving (Eq, Show)
+newtype Username = Username Text
 
 data UserNew = UserNew { email'     :: Text
                        , username'  :: Username
-                       } deriving (Eq, Show)
+                       }
 
 data UserBase = UserBase { userId   :: UserId
                          , email    :: Text
                          , username :: Username
-                         } deriving (Eq, Show)
+                         }
 
 type instance Context UserBase DB = UserId
 type instance Context UserBase None = UserBase
 --------------------------------------------------------------------------------
 -- | Media
 --------------------------------------------------------------------------------
-newtype MediaId = MediaId Integer deriving (Eq, Show)
+newtype MediaId = MediaId Integer
 
 data MediaNew = MediaNew { mediaCaption'  :: Maybe Caption
                          , mediaRef'      :: Text
                          , mediaOwner'    :: UserId
-                         } deriving (Eq, Show)
+                         }
 
 data MediaBase r = MediaBase { mediaId      :: MediaId
                              , mediaCaption :: Maybe Caption
@@ -65,45 +65,38 @@ data MediaBase r = MediaBase { mediaId      :: MediaId
                              , mediaOwner   :: Context UserBase r
                              }
 
-deriving instance Show (Context UserBase r) => Show (MediaBase r)
-
 type instance Context (MediaBase r) DB = MediaId
 type instance Context (MediaBase r) None = MediaBase None
 --------------------------------------------------------------------------------
 -- | Vfile
 --------------------------------------------------------------------------------
-newtype VfileId = VfileId Integer deriving (Eq, Show)
+newtype VfileId = VfileId Integer
 
 data VfileNew = VfileNew { vfileCaption'  :: Maybe Caption
                          , vfileOwner'    :: UserId
-                         } deriving (Show)
+                         }
 
 data VfileBase r = VfileBase { vfileId      :: VfileId
                              , vfileCaption :: Maybe Caption
                              , vfileOwner   :: Context UserBase r
                              }
 
-deriving instance Show (Context UserBase r) => Show (VfileBase r)
-
 
 data Vfile r = Vfile { vfileBase :: Context (VfileBase r) r
                      , medias    :: [Context (MediaVfileBase r) r]
                      }
-
-deriving instance (Show (Context (MediaVfileBase r) r), Show (Context (VfileBase r) r))
-  => Show (Vfile r)
 
 type instance Context (VfileBase r) DB = VfileId
 type instance Context (VfileBase r) None = VfileBase None
 --------------------------------------------------------------------------------
 -- | MediaVfile
 --------------------------------------------------------------------------------
-newtype MediaVfileId = MediaVfileId Integer deriving (Eq, Show)
+newtype MediaVfileId = MediaVfileId Integer
 
 data MediaVfileNew = MediaVfileNew { mvfCaption' :: Maybe Caption
                                    , mvfMedia'   :: MediaId
                                    , mvfVfile'   :: VfileId
-                                   } deriving (Eq, Show)
+                                   }
 
 data MediaVfileBase r = MediaVfileBase { mvfId      :: MediaVfileId
                                        , mvfCaption :: Maybe Caption
@@ -112,14 +105,8 @@ data MediaVfileBase r = MediaVfileBase { mvfId      :: MediaVfileId
                                        , mvfOwner   :: Context UserBase r
                                        }
 
-deriving instance ( Show (Context (MediaBase r) r)
-                  , Show (Context (VfileBase r) r)
-                  , Show (Context UserBase r)
-                  ) => Show (MediaVfileBase r)
-
 data MVFIdentifier = MVFId MediaVfileId
                    | MVFPair (MediaId, VfileId)
-                     deriving (Eq, Show)
 
 type instance Context (MediaVfileBase r) DB = MediaVfileId
 type instance Context (MediaVfileBase r) None = MediaVfileBase None
@@ -132,25 +119,24 @@ data CommentType = MediaComment
 
 genSingletons [ ''CommentType ]
 
-newtype CommentId = CommentId Integer deriving (Eq, Show)
+newtype CommentId = CommentId Integer
 
-data CommentNew ct = CommentNew { commentText'     :: Text
-                                , commentType'     :: SCommentType ct
-                                , commentSourceId' :: CommentSourceId ct
-                                , commentOwner'    :: UserId
-                                }
+data CommentNew (ct :: CommentType) =
+  CommentNew { commentText'     :: Text
+             , commentType'     :: Sing ct
+             , commentSourceId' :: CommentSourceId ct
+             , commentOwner'    :: UserId
+             }
 
-data CommentBase ct cxt = CommentBase { commentId        :: CommentId
-                                      , commentText      :: Text
-                                      , commentType      :: SCommentType ct
-                                      , commentSourceId  :: CommentSourceId ct
-                                      , commentOwner     :: Context UserBase cxt
-                                      }
+data CommentBase (ct :: CommentType) (cxt :: ResourceContext) =
+  CommentBase { commentId        :: CommentId
+              , commentText      :: Text
+              , commentType      :: Sing ct
+              , commentSourceId  :: CommentSourceId ct
+              , commentOwner     :: Context UserBase cxt
+              }
 
-deriving instance ( Show (SCommentType ct)
-                  , Show (CommentSourceId ct)
-                  , Show (Context UserBase cxt)
-                  ) => Show (CommentBase ct cxt)
+data CommentIdentifier (ct :: CommentType) = CommentIdentifier Integer (Sing ct)
 
 type family CommentSourceId (a :: CommentType) :: *
 

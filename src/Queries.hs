@@ -25,7 +25,7 @@ ownsComment :: UserId -> CommentBase ct 'DB -> Bool
 ownsComment uId com = (== uId) . commentOwner $ com
 
 updateComment :: UserId -> CommentBase ct 'DB -> VFCrud ()
-updateComment uId com =
+updateComment uId com = do
   if ownsComment uId com
   then do
     liftPG $ updatePG (SCommentCrud (commentType com)) com

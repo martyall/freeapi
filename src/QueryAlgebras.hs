@@ -40,7 +40,7 @@ type family ReadData (c :: VFCrudable) :: * where
   ReadData 'MediaCrud = MediaId
   ReadData 'VfileCrud = VfileId
   ReadData 'MediaVfileCrud = MVFIdentifier
-  ReadData ('CommentCrud ct) = CommentId
+  ReadData ('CommentCrud ct) = CommentIdentifier ct
 
 --------------------------------------------------------------------------------
 -- | Basic PG-CRUD operations
@@ -131,7 +131,7 @@ deleteNeo c n = ExceptT . Free $ DeleteNeo c n Pure
 --------------------------------------------------------------------------------
 
 data VFCrudF a = InPGCrud (PGCrudF a)
-             | InNeoCrud (NeoCrudF a)
+               | InNeoCrud (NeoCrudF a)
 
 instance Functor VFCrudF where
   fmap f (InPGCrud a) = InPGCrud (fmap f a)
