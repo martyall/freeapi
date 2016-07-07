@@ -20,10 +20,6 @@ data DBType = PG | Neo
 
 data ResourceContext = DB | None
 
-data SResourceContext (cxt :: ResourceContext) where
-  SDB   :: SResourceContext 'DB
-  SNone :: SResourceContext 'None
-
 type family Context (a :: *) (r :: ResourceContext) :: *
 
 --------------------------------------------------------------------------------
