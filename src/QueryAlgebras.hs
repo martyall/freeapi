@@ -130,14 +130,14 @@ deleteNeo c n = ExceptT . Free $ DeleteNeo c n Pure
 -- | Composite Query Algebra
 --------------------------------------------------------------------------------
 
-data VFSum a = InPGCrud (PGCrudF a)
+data VFCrudF a = InPGCrud (PGCrudF a)
              | InNeoCrud (NeoCrudF a)
 
-instance Functor VFSum where
+instance Functor VFCrudF where
   fmap f (InPGCrud a) = InPGCrud (fmap f a)
   fmap f (InNeoCrud a) = InNeoCrud (fmap f a)
 
-type VFCrud = ExceptT VfilesError (Free VFSum)
+type VFCrud = ExceptT VfilesError (Free VFCrudF)
 
 class Monad m => MonadPGCrud m where
   liftPG :: forall a. PGCrud a -> m a

@@ -82,7 +82,7 @@ crudPG = (iterM crudPGF) . runExceptT
 -- | "Vfiles Query Algebra" (VFQA) Interpreter
 --------------------------------------------------------------------------------
 
-crudF :: VFSum (IO (Either VfilesError a))
+crudF :: VFCrudF (IO (Either VfilesError a))
       -> IO (Either VfilesError a)
 crudF (InPGCrud pg) = crudPGF pg
 crudF (InNeoCrud neo) = crudNeoF neo
