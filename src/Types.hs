@@ -160,6 +160,9 @@ genSingletons [ ''VFCrudable ]
 data CrudKey (perms :: [Perms]) (c :: VFCrudable) =
   CrudKey (Permissions perms) (Sing c)
 
+suKey :: Sing c -> CrudKey ['R, 'W, 'D] c
+suKey sing = CrudKey RWDP sing
+
 data Perms = R | W | D deriving (Eq)
 
 data Permissions (perms :: [Perms]) where

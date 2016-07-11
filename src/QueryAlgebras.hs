@@ -38,6 +38,11 @@ type family ReadData (c :: VFCrudable) :: * where
   ReadData 'MediaVfileCrud = MVFIdentifier
   ReadData ('CommentCrud ct) = CommentIdentifier ct
 
+
+data KeyData (c :: VFCrudable) = RD (ReadData c)
+                               | ND (NewData c)
+
+
 --------------------------------------------------------------------------------
 -- | Basic PG-CRUD operations
 --------------------------------------------------------------------------------
@@ -61,7 +66,7 @@ data PGCrudF next :: * where
            -> PGCrudF next
   CrudKeyPG :: CrudKey desired c
             -> UserId
-            -> ReadData c
+            -> KeyData c
             -> (Either VfilesError (CrudKey desired c) -> next)
             -> PGCrudF next
 
@@ -106,22 +111,28 @@ requestKey :: CrudKey desired c
            -> UserId
            -> ReadData c
            -> PGCrud (CrudKey desired c)
-requestKey c u i = ExceptT . Free $ CrudKeyPG c u i Pure
+requestKey c u i = ExceptT . Free $ CrudKeyPG c u (RD i) Pure
+
+insertKey :: CrudKey desired c
+           -> UserId
+           -> NewData c
+           -> PGCrud (CrudKey desired c)
+insertKey c u i = ExceptT . Free $ CrudKeyPG c u (ND i) Pure
 
 --------------------------------------------------------------------------------
 -- | Basic Neo-CRUD operations
 --------------------------------------------------------------------------------
 
 data NeoCrudF next :: * where
-  CreateNeo :: Sing (c :: VFCrudable)
+  CreateNeo :: CrudKey perms c
             -> BaseData c
             -> (Either VfilesError () -> next)
             -> NeoCrudF next
-  UpdateNeo :: Sing (c :: VFCrudable)
+  UpdateNeo :: CrudKey perms c
             -> BaseData c
             -> (Either VfilesError () -> next)
             -> NeoCrudF next
-  DeleteNeo :: Sing (c :: VFCrudable)
+  DeleteNeo :: CrudKey perms c
             -> ReadData c
             -> (Either VfilesError () -> next)
             -> NeoCrudF next
@@ -137,13 +148,22 @@ type NeoCrud = ExceptT VfilesError (Free NeoCrudF)
 -- | Smart Neo-CRUD Constructors
 --------------------------------------------------------------------------------
 
-createNeo :: Sing (c :: VFCrudable) -> BaseData c -> NeoCrud ()
+createNeo :: Elem 'W perms ~ True
+          => CrudKey perms c
+          -> BaseData c
+          -> NeoCrud ()
 createNeo c n = ExceptT . Free $ CreateNeo c n Pure
 
-updateNeo :: Sing (c :: VFCrudable) -> BaseData c -> NeoCrud ()
+updateNeo :: Elem 'W perms ~ True
+          => CrudKey perms c
+          -> BaseData c
+          -> NeoCrud ()
 updateNeo c n = ExceptT . Free $ UpdateNeo c n Pure
 
-deleteNeo :: Sing (c :: VFCrudable) -> ReadData c -> NeoCrud ()
+deleteNeo :: Elem 'D perms ~ True
+          => CrudKey perms c
+          -> ReadData c
+          -> NeoCrud ()
 deleteNeo c n = ExceptT . Free $ DeleteNeo c n Pure
 
 --------------------------------------------------------------------------------
