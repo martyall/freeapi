@@ -38,11 +38,11 @@ ownsMedia uId med = (== uId) . mediaOwner $ med
 
 editMediaCaption :: UserId -> MediaId -> Maybe Caption -> VFCrud ()
 editMediaCaption uId mId cap = do
-  media <- liftPG $ readPG (SMediaCrud) mId
+  media <- liftPG $ readPG SMediaCrud mId
   if uId `ownsMedia` media
   then do
-    liftPG $ updatePG (SMediaCrud) $ media {mediaCaption = cap}
-    liftNeo $ updateNeo (SMediaCrud) $ media {mediaCaption = cap}
+    liftPG $ updatePG SMediaCrud $ media {mediaCaption = cap}
+    liftNeo $ updateNeo SMediaCrud $ media {mediaCaption = cap}
   else
     throwE $ VfilesError "User doesn't have permission to edit caption"
 
