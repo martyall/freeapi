@@ -52,13 +52,14 @@ data PGCrudF next :: * where
            -> NewData c
            -> (Either VfilesError (BaseData c) -> next)
            -> PGCrudF next
-  ReadPG   :: CrudKey perms c
+  ReadPG   :: Elem 'R perms ~ True
+           => CrudKey perms c
            -> ReadData c
            -> (Either VfilesError (BaseData c) -> next)
            -> PGCrudF next
   UpdatePG :: CrudKey perms c
            -> BaseData c
-           -> (Either VfilesError () -> next)
+           -> (Either VfilesError (BaseData c) -> next)
            -> PGCrudF next
   DeletePG :: CrudKey perms c
            -> ReadData c
@@ -98,7 +99,7 @@ readPG c n = ExceptT . Free $ ReadPG c n Pure
 updatePG :: Elem 'W perms ~ True
          => CrudKey perms c
          -> BaseData c
-         -> PGCrud ()
+         -> PGCrud (BaseData c)
 updatePG c n = ExceptT . Free $ UpdatePG c n Pure
 
 deletePG :: Elem 'D perms ~ True
@@ -190,3 +191,5 @@ class Monad m => MonadNeoCrud m where
 
 instance MonadNeoCrud VFCrud where
   liftNeo = mapExceptT $ hoistFree InNeoCrud
+
+

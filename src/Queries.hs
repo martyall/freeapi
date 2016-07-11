@@ -18,15 +18,16 @@ import Database.Neo4j.Transactional.Cypher
 --getPersonsMedias :: UserId -> PGCrud [MediaBase cxt]
 --getPersonsMedias = undefined
 
-updateComment :: UserId -> CommentIdentifier ct -> Text -> VFCrud ()
+updateComment :: UserId -> CommentIdentifier ct -> Text -> VFCrud (CommentBase ct 'DB)
 updateComment userId comId@(CommentIdentifier _ comType) txt = do
   let key = CrudKey RWP (SCommentCrud comType)
   commentKey <- liftPG $ requestKey key userId comId
   com <- liftPG $ readPG commentKey comId
-  liftPG $ updatePG commentKey $ com {commentText = txt}
+  com <- liftPG $ updatePG commentKey $ com {commentText = txt}
   liftNeo $ updateNeo commentKey $ com {commentText = txt}
+  return com
 
-editMediaCaption :: UserId -> MediaId -> Maybe Caption -> PGCrud ()
+editMediaCaption :: UserId -> MediaId -> Maybe Caption -> PGCrud (MediaBase 'DB)
 editMediaCaption userId mediaId cap = do
   mediaKey <- requestKey (CrudKey RWP SMediaCrud) userId mediaId
   media <- readPG mediaKey mediaId
