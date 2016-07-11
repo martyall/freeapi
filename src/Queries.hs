@@ -20,8 +20,8 @@ import Database.Neo4j.Transactional.Cypher
 
 updateComment :: UserId -> CommentIdentifier ct -> Text -> VFCrud (CommentBase ct 'DB)
 updateComment userId comId@(CommentIdentifier _ comType) txt = do
-  let key = CrudKey RWP (SCommentCrud comType)
-  commentKey <- liftPG $ requestKey key userId comId
+  let desiredKey = CrudKey RWP (SCommentCrud comType)
+  commentKey <- liftPG $ requestKey desiredKey userId comId
   com <- liftPG $ readPG commentKey comId
   com <- liftPG $ updatePG commentKey $ com {commentText = txt}
   liftNeo $ updateNeo commentKey $ com {commentText = txt}
