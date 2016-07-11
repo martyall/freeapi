@@ -3,6 +3,7 @@
 {-# LANGUAGE TemplateHaskell#-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module QueryAlgebras where
 
@@ -12,19 +13,6 @@ import Control.Monad.Free
 import Data.Singletons.TH
 
 
-data VFCrudable = UserCrud
-                | MediaCrud
-                | VfileCrud
-                | MediaVfileCrud
-                | CommentCrud CommentType
-                deriving (Show)
-
-genSingletons [ ''VFCrudable ]
-
-data CrudKey perms (c :: VFCrudable) =
-  CrudKey { permissions :: Permissions perms
-          , rowType :: Sing c
-          }
 
 type family NewData (c :: VFCrudable) :: * where
   NewData 'UserCrud  = UserNew
@@ -84,28 +72,30 @@ type PGCrud = ExceptT VfilesError (Free PGCrudF)
 createPG :: Sing (c :: VFCrudable) -> NewData c -> PGCrud (BaseData c)
 createPG c n = ExceptT . Free $ CreatePG c n Pure
 
-readPG :: Elem 'ReadP perms ~ True
+readPG :: Elem 'ReadP perms ~ b
        => CrudKey perms c
        -> ReadData c
        -> PGCrud (BaseData c)
 readPG c n = ExceptT . Free $ ReadPG c n Pure
 
-updatePG :: Elem 'WriteP perms ~ True
+updatePG :: Elem 'WriteP perms ~ b
          => CrudKey perms c
          -> BaseData c
          -> PGCrud ()
 updatePG c n = ExceptT . Free $ UpdatePG c n Pure
 
-deletePG :: Elem 'DelP perms ~ True
-         => CrudKey perms c
+deletePG :: Elem 'DelP perms ~ guard
+         => Sing guard
+         -> CrudKey perms c
          -> ReadData c
          -> PGCrud ()
-deletePG c n = ExceptT . Free $ DeletePG c n Pure
+deletePG g c n = case g of
+  SAllow -> ExceptT . Free $ DeletePG c n Pure
+  SDeny -> throwE $ VfilesError "do not have permission"
 
 --------------------------------------------------------------------------------
 -- | PG-CRUD Permissions
 --------------------------------------------------------------------------------
-
 
 
 

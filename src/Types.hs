@@ -7,12 +7,15 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE TypeInType #-}
 
 
 module Types where
 
 import Data.Text (Text)
 import Data.Singletons.TH
+import Data.Kind
+
 
 
 --------------------------------------------------------------------------------
@@ -145,13 +148,31 @@ type instance CommentSourceId 'MediaVfileComment = MVFIdentifier
 --------------------------------------------------------------------------------
 -- | Permissions
 --------------------------------------------------------------------------------
+data VFCrudable = UserCrud
+                | MediaCrud
+                | VfileCrud
+                | MediaVfileCrud
+                | CommentCrud CommentType
+                deriving (Show)
+
+genSingletons [ ''VFCrudable ]
+
+data CrudKey perms (c :: VFCrudable) =
+    CrudKey (Permissions perms) (Sing c)
+  | Violation
+
 data Perms = ReadP | WriteP | DelP deriving (Eq)
 
 data Permissions (perms :: [ Perms ]) where
-  RWD :: Permissions '[ 'ReadP, 'WriteP, 'DelP ]
-  R   :: Permissions '[ 'ReadP ]
+  RWD   :: Permissions '[ 'ReadP, 'WriteP, 'DelP ]
+  R     :: Permissions '[ 'ReadP ]
+  Empty :: Permissions '[]
 
-type family Elem (x :: k) (xs :: [k]) :: Bool where
-  Elem x '[] = False
-  Elem x (x ': xs) = True
+data Guard = Allow | Deny deriving Eq
+
+genSingletons [ ''Guard ]
+
+type family Elem (x :: k) (xs :: [k]) :: Guard where
+  Elem x '[] = Deny
+  Elem x (x ': xs) = Allow
   Elem x (y ': xs) = Elem x xs
