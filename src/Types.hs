@@ -161,18 +161,14 @@ data CrudKey perms (c :: VFCrudable) =
     CrudKey (Permissions perms) (Sing c)
   | Violation
 
-data Perms = ReadP | WriteP | DelP deriving (Eq)
+data Perms = R | W | D deriving (Eq)
 
 data Permissions (perms :: [ Perms ]) where
-  RWD   :: Permissions '[ 'ReadP, 'WriteP, 'DelP ]
-  R     :: Permissions '[ 'ReadP ]
-  Empty :: Permissions '[]
+  RWDP   :: Permissions '[ 'R, 'W, 'D ]
+  RP     :: Permissions '[ 'R ]
+  EmptyP :: Permissions '[]
 
-data Guard = Allow | Deny deriving Eq
-
-genSingletons [ ''Guard ]
-
-type family Elem (x :: k) (xs :: [k]) :: Guard where
-  Elem x '[] = Deny
-  Elem x (x ': xs) = Allow
+type family Elem (x :: k) (xs :: [k]) :: Bool where
+  Elem x '[] = False
+  Elem x (x ': xs) = True
   Elem x (y ': xs) = Elem x xs

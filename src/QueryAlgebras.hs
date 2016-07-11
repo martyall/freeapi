@@ -40,7 +40,7 @@ type family ReadData (c :: VFCrudable) :: * where
 --------------------------------------------------------------------------------
 
 data PGCrudF next :: * where
-  CreatePG :: Sing (c :: VFCrudable)
+  CreatePG :: CrudKey perms c
            -> NewData c
            -> (Either VfilesError (BaseData c) -> next)
            -> PGCrudF next
@@ -56,12 +56,18 @@ data PGCrudF next :: * where
            -> ReadData c
            -> (Either VfilesError () -> next)
            -> PGCrudF next
+  CrudKeyPG :: Sing (c :: VFCrudable)
+            -> UserId
+            -> ReadData c
+            -> (Either VfilesError (CrudKey perms c) -> next)
+            -> PGCrudF next
 
 instance Functor PGCrudF where
   fmap f (CreatePG c n next) = CreatePG c n $ f . next
   fmap f (ReadPG c i next) = ReadPG c i $ f . next
   fmap f (UpdatePG c b next) = UpdatePG c b $ f . next
   fmap f (DeletePG c i next) = DeletePG c i $ f . next
+  fmap f (CrudKeyPG c u i next) = CrudKeyPG c u i $ f . next
 
 type PGCrud = ExceptT VfilesError (Free PGCrudF)
 
@@ -69,35 +75,35 @@ type PGCrud = ExceptT VfilesError (Free PGCrudF)
 -- | Smart PG-CRUD Constructors
 --------------------------------------------------------------------------------
 
-createPG :: Sing (c :: VFCrudable) -> NewData c -> PGCrud (BaseData c)
+createPG :: Elem 'W perms ~ True
+         => CrudKey perms c
+         -> NewData c
+         -> PGCrud (BaseData c)
 createPG c n = ExceptT . Free $ CreatePG c n Pure
 
-readPG :: Elem 'ReadP perms ~ b
+readPG :: Elem 'R perms ~ True
        => CrudKey perms c
        -> ReadData c
        -> PGCrud (BaseData c)
 readPG c n = ExceptT . Free $ ReadPG c n Pure
 
-updatePG :: Elem 'WriteP perms ~ b
+updatePG :: Elem 'W perms ~ True
          => CrudKey perms c
          -> BaseData c
          -> PGCrud ()
 updatePG c n = ExceptT . Free $ UpdatePG c n Pure
 
-deletePG :: Elem 'DelP perms ~ guard
-         => Sing guard
-         -> CrudKey perms c
+deletePG :: Elem 'D perms ~ True
+         => CrudKey perms c
          -> ReadData c
          -> PGCrud ()
-deletePG g c n = case g of
-  SAllow -> ExceptT . Free $ DeletePG c n Pure
-  SDeny -> throwE $ VfilesError "do not have permission"
+deletePG c n = ExceptT . Free $ DeletePG c n Pure
 
---------------------------------------------------------------------------------
--- | PG-CRUD Permissions
---------------------------------------------------------------------------------
-
-
+crudKeyPG :: Sing (c :: VFCrudable)
+          -> UserId
+          -> ReadData c
+          -> PGCrud (CrudKey perms c)
+crudKeyPG c u i = ExceptT . Free $ CrudKeyPG c u i Pure
 
 --------------------------------------------------------------------------------
 -- | Basic Neo-CRUD operations
