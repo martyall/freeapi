@@ -13,7 +13,7 @@
 module Types where
 
 import Data.Text (Text)
-import Data.Singletons.TH
+import Data.Singletons.TH hiding ((:<))
 import Data.Kind
 
 
@@ -157,15 +157,16 @@ data VFCrudable = UserCrud
 
 genSingletons [ ''VFCrudable ]
 
-data CrudKey perms (c :: VFCrudable) =
-    CrudKey (Permissions perms) (Sing c)
-  | Violation
+data CrudKey (perms :: [Perms]) (c :: VFCrudable) =
+  CrudKey (Permissions perms) (Sing c)
 
 data Perms = R | W | D deriving (Eq)
 
-data Permissions (perms :: [ Perms ]) where
+data Permissions (perms :: [Perms]) where
   RWDP   :: Permissions '[ 'R, 'W, 'D ]
+  RWP    :: Permissions '[ 'R, 'W ]
   RP     :: Permissions '[ 'R ]
+  WP     :: Permissions '[ 'W ]
   EmptyP :: Permissions '[]
 
 type family Elem (x :: k) (xs :: [k]) :: Bool where

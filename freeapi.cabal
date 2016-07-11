@@ -18,7 +18,7 @@ library
   exposed-modules:     Lib
                    --  , Permissions
                      , QueryAlgebras
-                   --  , Queries
+                     , Queries
                      , Types
   build-depends:       base >= 4.7 && < 5
                      , errors

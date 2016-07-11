@@ -4,13 +4,16 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+
 
 module QueryAlgebras where
 
 import Types
 import Control.Error
 import Control.Monad.Free
-import Data.Singletons.TH
+import Data.Singletons.TH hiding ((:<))
 
 
 
@@ -56,10 +59,10 @@ data PGCrudF next :: * where
            -> ReadData c
            -> (Either VfilesError () -> next)
            -> PGCrudF next
-  CrudKeyPG :: Sing (c :: VFCrudable)
+  CrudKeyPG :: CrudKey desired c
             -> UserId
             -> ReadData c
-            -> (Either VfilesError (CrudKey perms c) -> next)
+            -> (Either VfilesError (CrudKey desired c) -> next)
             -> PGCrudF next
 
 instance Functor PGCrudF where
@@ -99,11 +102,11 @@ deletePG :: Elem 'D perms ~ True
          -> PGCrud ()
 deletePG c n = ExceptT . Free $ DeletePG c n Pure
 
-crudKeyPG :: Sing (c :: VFCrudable)
-          -> UserId
-          -> ReadData c
-          -> PGCrud (CrudKey perms c)
-crudKeyPG c u i = ExceptT . Free $ CrudKeyPG c u i Pure
+requestKey :: CrudKey desired c
+           -> UserId
+           -> ReadData c
+           -> PGCrud (CrudKey desired c)
+requestKey c u i = ExceptT . Free $ CrudKeyPG c u i Pure
 
 --------------------------------------------------------------------------------
 -- | Basic Neo-CRUD operations
