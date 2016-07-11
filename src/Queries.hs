@@ -27,27 +27,42 @@ ownsComment uId com = (== uId) . commentOwner $ com
 updateComment :: UserId -> CommentIdentifier ct -> Text -> VFCrud ()
 updateComment uId comId@(CommentIdentifier _ comType) txt = do
   com <- liftPG $ readPG (SCommentCrud comType) comId
-  if ownsComment uId com
+  if uId `ownsComment` com
   then do
     liftPG $ updatePG (SCommentCrud comType) $ com {commentText = txt}
     liftNeo $ updateNeo (SCommentCrud comType) $ com {commentText = txt}
   else throwE $ VfilesError "User doesn't have permission to edit comment"
 
-ownsMedia :: UserId -> MediaId -> PGCrud Bool
-ownsMedia uId mId = do
-  med <- readPG SMediaCrud mId
-  return $ (== uId) . mediaOwner $ med
+ownsMedia :: UserId -> MediaBase 'DB -> Bool
+ownsMedia uId med = (== uId) . mediaOwner $ med
 
 editMediaCaption :: UserId -> MediaId -> Maybe Caption -> VFCrud ()
 editMediaCaption uId mId cap = do
-  canEdit <- liftPG $ ownsMedia uId mId
-  if canEdit
+  media <- liftPG $ readPG (SMediaCrud) mId
+  if uId `ownsMedia` media
   then do
-    media <- liftPG $ readPG (SMediaCrud) mId
     liftPG $ updatePG (SMediaCrud) $ media {mediaCaption = cap}
     liftNeo $ updateNeo (SMediaCrud) $ media {mediaCaption = cap}
   else
     throwE $ VfilesError "User doesn't have permission to edit caption"
+
+ownsVfile :: UserId -> VfileBase 'DB -> Bool
+ownsVfile uId vf = (== uId) . vfileOwner $ vf
+
+--createAndFileMedia :: UserId -> NewMedia -> VfileBase 'DB -> VFCrud MediaId
+--createAndFileMedia nMedia vf = do
+--  let filer = mediaOwner' nMedia
+--  if uId `ownsVfile` vf && 
+--  then do
+--    media <- liftPG $ createPG (SMediaCrud) $ nMedia
+--    liftNeo $ createNeo
+--
+--refileMedia :: UserId -> VfileId -> MediaBase 'DB -> 'VFCrud (MediaVfileBase 'DB)
+--refileMedia uId vfId media = do
+--  vfile <- readPG SVfileCrud vfId
+--  if uId `ownsVfile` vfile
+--  then do
+--    mvf <- create SMediaVfileCrud 
 
 --------------------------------------------------------------------------------
 -- | Neo4j CRUD Interpreter
