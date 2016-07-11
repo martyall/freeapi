@@ -49,20 +49,15 @@ editMediaCaption uId mId cap = do
 ownsVfile :: UserId -> VfileBase 'DB -> Bool
 ownsVfile uId vf = (== uId) . vfileOwner $ vf
 
---createAndFileMedia :: UserId -> NewMedia -> VfileBase 'DB -> VFCrud MediaId
---createAndFileMedia nMedia vf = do
---  let filer = mediaOwner' nMedia
---  if uId `ownsVfile` vf && 
---  then do
---    media <- liftPG $ createPG (SMediaCrud) $ nMedia
---    liftNeo $ createNeo
---
---refileMedia :: UserId -> VfileId -> MediaBase 'DB -> 'VFCrud (MediaVfileBase 'DB)
---refileMedia uId vfId media = do
---  vfile <- readPG SVfileCrud vfId
---  if uId `ownsVfile` vfile
---  then do
---    mvf <- create SMediaVfileCrud 
+createAndFileMedia :: UserId -> MediaVfileNew -> VFCrud (MediaVfileBase 'DB)
+createAndFileMedia uId nMediaVf = do
+  vf <- liftPG $ readPG SVfileCrud $ mvfVfile' nMediaVf
+  if uId `ownsVfile` vf
+  then do
+    mediaVf <- liftPG $ createPG SMediaVfileCrud nMediaVf
+    liftNeo $ createNeo SMediaVfileCrud mediaVf
+    return  mediaVf
+  else throwE $ VfilesError "User doesn't have permission to file media"
 
 --------------------------------------------------------------------------------
 -- | Neo4j CRUD Interpreter
