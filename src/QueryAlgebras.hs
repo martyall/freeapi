@@ -21,6 +21,11 @@ data VFCrudable = UserCrud
 
 genSingletons [ ''VFCrudable ]
 
+data CrudKey perms (c :: VFCrudable) =
+  CrudKey { permissions :: Permissions perms
+          , rowType :: Sing c
+          }
+
 type family NewData (c :: VFCrudable) :: * where
   NewData 'UserCrud  = UserNew
   NewData 'MediaCrud = MediaNew
@@ -51,15 +56,15 @@ data PGCrudF next :: * where
            -> NewData c
            -> (Either VfilesError (BaseData c) -> next)
            -> PGCrudF next
-  ReadPG   :: Sing (c :: VFCrudable)
+  ReadPG   :: CrudKey perms c
            -> ReadData c
            -> (Either VfilesError (BaseData c) -> next)
            -> PGCrudF next
-  UpdatePG :: Sing (c :: VFCrudable)
+  UpdatePG :: CrudKey perms c
            -> BaseData c
            -> (Either VfilesError () -> next)
            -> PGCrudF next
-  DeletePG :: Sing (c :: VFCrudable)
+  DeletePG :: CrudKey perms c
            -> ReadData c
            -> (Either VfilesError () -> next)
            -> PGCrudF next
@@ -79,13 +84,22 @@ type PGCrud = ExceptT VfilesError (Free PGCrudF)
 createPG :: Sing (c :: VFCrudable) -> NewData c -> PGCrud (BaseData c)
 createPG c n = ExceptT . Free $ CreatePG c n Pure
 
-readPG :: Sing (c :: VFCrudable) -> ReadData c -> PGCrud (BaseData c)
+readPG :: Elem 'ReadP perms ~ True
+       => CrudKey perms c
+       -> ReadData c
+       -> PGCrud (BaseData c)
 readPG c n = ExceptT . Free $ ReadPG c n Pure
 
-updatePG :: Sing (c :: VFCrudable) -> BaseData c -> PGCrud ()
+updatePG :: Elem 'WriteP perms ~ True
+         => CrudKey perms c
+         -> BaseData c
+         -> PGCrud ()
 updatePG c n = ExceptT . Free $ UpdatePG c n Pure
 
-deletePG :: Sing (c :: VFCrudable) -> ReadData c -> PGCrud ()
+deletePG :: Elem 'DelP perms ~ True
+         => CrudKey perms c
+         -> ReadData c
+         -> PGCrud ()
 deletePG c n = ExceptT . Free $ DeletePG c n Pure
 
 --------------------------------------------------------------------------------

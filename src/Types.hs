@@ -5,6 +5,9 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE PolyKinds #-}
+
 
 module Types where
 
@@ -138,3 +141,17 @@ type family CommentSourceId (a :: CommentType) :: *
 
 type instance CommentSourceId 'MediaComment = MediaId
 type instance CommentSourceId 'MediaVfileComment = MVFIdentifier
+
+--------------------------------------------------------------------------------
+-- | Permissions
+--------------------------------------------------------------------------------
+data Perms = ReadP | WriteP | DelP deriving (Eq)
+
+data Permissions (perms :: [ Perms ]) where
+  RWD :: Permissions '[ 'ReadP, 'WriteP, 'DelP ]
+  R   :: Permissions '[ 'ReadP ]
+
+type family Elem (x :: k) (xs :: [k]) :: Bool where
+  Elem x '[] = False
+  Elem x (x ': xs) = True
+  Elem x (y ': xs) = Elem x xs

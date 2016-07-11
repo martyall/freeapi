@@ -16,9 +16,10 @@ cabal-version:       >=1.10
 library
   hs-source-dirs:      src
   exposed-modules:     Lib
-                     , Types
+                   --  , Permissions
                      , QueryAlgebras
-                     , Queries
+                   --  , Queries
+                     , Types
   build-depends:       base >= 4.7 && < 5
                      , errors
                      , free
