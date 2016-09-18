@@ -104,7 +104,7 @@ data MediaVfileBase r = MediaVfileBase { mvfId      :: MediaVfileId
 data MVFIdentifier = MVFId MediaVfileId
                    | MVFPair MediaId VfileId
 
-type instance Context (MediaVfileBase r) DB = MediaVfileId
+type instance Context (MediaVfileBase r) DB = MVFIdentifier
 type instance Context (MediaVfileBase r) None = MediaVfileBase None
 --------------------------------------------------------------------------------
 -- | Comment
@@ -120,21 +120,21 @@ newtype CommentId = CommentId Integer
 data CommentNew (ct :: CommentType) =
   CommentNew { commentText'     :: Text
              , commentType'     :: Sing ct
-             , commentSourceId' :: CommentSourceId ct
+             , commentSourceId' :: CommentSource ct 'DB
              , commentOwner'    :: UserId
              }
 
-data CommentBase (ct :: CommentType) (cxt :: ResourceContext) =
+data CommentBase (ct :: CommentType) (r :: ResourceContext) =
   CommentBase { commentId        :: CommentId
               , commentText      :: Text
               , commentType      :: Sing ct
-              , commentSourceId  :: CommentSourceId ct
-              , commentOwner     :: Context UserBase cxt
+              , commentSource    :: CommentSource ct r
+              , commentOwner     :: Context UserBase r
               }
 
 data CommentIdentifier (ct :: CommentType) = CommentIdentifier Integer (Sing ct)
 
-type family CommentSourceId (a :: CommentType) :: *
 
-type instance CommentSourceId 'MediaComment = MediaId
-type instance CommentSourceId 'MediaVfileComment = MVFIdentifier
+type family CommentSource (ct :: CommentType) (r :: ResourceContext) :: *
+type instance CommentSource 'MediaComment r = Context (MediaBase r) r
+type instance CommentSource 'MediaVfileComment r = Context (MediaVfileBase r) r

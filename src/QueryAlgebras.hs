@@ -1,8 +1,10 @@
 {-# LANGUAGE GADTs, DataKinds, TypeFamilies #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell#-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module QueryAlgebras where
 
@@ -40,7 +42,7 @@ type family ReadData (c :: VFCrudable) :: * where
   ReadData 'MediaCrud = MediaId
   ReadData 'VfileCrud = VfileId
   ReadData 'MediaVfileCrud = MVFIdentifier
-  ReadData ('CommentCrud ct) = CommentIdentifier ct
+  ReadData ('CommentCrud ct) = CommentSource ct 'DB
 
 --------------------------------------------------------------------------------
 -- | Basic PG-CRUD operations
@@ -157,3 +159,50 @@ class Monad m => MonadNeoCrud m where
 
 instance MonadNeoCrud VFCrud where
   liftNeo = mapExceptT $ hoistFree InNeoCrud
+
+
+--------------------------------------------------------------------------------
+-- | Inflatebles
+--------------------------------------------------------------------------------
+
+class Inflatable t where
+  inflate :: MonadPGCrud m => t DB -> m (t None)
+  inflateM :: MonadPGCrud m => m (t DB) -> m (t None)
+  inflateM m = m >>= inflate
+
+
+instance Inflatable VfileBase where
+  inflate vf@(VfileBase _ _ pId) = do
+    owner <- liftPG $ readPG SUserCrud pId
+    return $ vf { vfileOwner = owner }
+
+
+instance Inflatable MediaBase where
+  inflate media@(MediaBase _ _ _ pId) = do
+    owner <- liftPG $ readPG SUserCrud pId
+    return $ media { mediaOwner = owner }
+
+instance Inflatable MediaVfileBase where
+  inflate mediaVfile@(MediaVfileBase _ _ mId vfId pId) = do
+    media <- inflateM $ liftPG $ readPG SMediaCrud mId
+    vfile <- inflateM $ liftPG $ readPG SVfileCrud vfId
+    owner <- liftPG $ readPG SUserCrud pId
+    return $ mediaVfile { mvfMedia = media, mvfVfile = vfile, mvfOwner = owner }
+
+instance Inflatable Vfile where
+  inflate (Vfile vfId mIds) = do
+    vfile <- inflateM $ liftPG $ readPG SVfileCrud vfId
+    medias <- mapM (inflateM . liftPG . readPG SMediaVfileCrud) mIds
+    return $ Vfile vfile medias
+
+instance Inflatable (CommentBase 'MediaComment) where
+  inflate comment@(CommentBase _ _ ct sId pId) = do
+      owner <- liftPG $ readPG SUserCrud pId
+      source <- inflateM $ liftPG $ readPG SMediaCrud sId
+      return $ comment { commentOwner = owner, commentSource = source }
+
+instance Inflatable (CommentBase 'MediaVfileComment) where
+  inflate comment@(CommentBase _ _ ct sId pId) = do
+      owner <- liftPG $ readPG SUserCrud pId
+      source <- inflateM $ liftPG $ readPG SMediaVfileCrud sId
+      return $ comment { commentOwner = owner, commentSource = source }
